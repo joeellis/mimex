@@ -1,80 +1,40 @@
 defmodule Mimex do
   use GenServer
 
-  def start_link(modules \\ []) do
-    GenServer.start_link(__MODULE__, modules, [name: :mimex])
-  end
+  def stub(modules) when is_list(modules), do: Enum.map(modules, &stub/1)
+  def stub(module) do
+    stub_mod = Module.concat(__MODULE__, module)
+    module_functions = stub_module_fn(module)
 
-  def init(modules) do
-    Code.compiler_options(ignore_module_conflict: true)
+    Module.create(stub_mod, module_functions, Macro.Env.location(__ENV__))
 
-    state = Map.new(modules, &{&1, %{}})
-
-    Enum.each modules, fn(module) ->
-      module_name = Module.concat(__MODULE__, module)
-
-      Module.create(module_name, create_mimex_fn(module), Macro.Env.location(__ENV__))
-
-      module_functions = stub_module_fn(module_name)
-
-      Module.create(module, module_functions, Macro.Env.location(__ENV__))
-    end
-
-    {:ok, state}
+    stub_mod
   end
 
   def list do
-    GenServer.call(:mimex, :list)
+    GenServer.call(:mimex_server, :list)
   end
 
-  def handle_call(:list, _from, state) do
-    {:reply, state, state}
+  def get(module, function_name) do
+    GenServer.call(:mimex_server, {:get, module, function_name})
   end
 
-  def handle_call({:get, provider, function_name}, _from, state) do
-    if Map.has_key?(state, provider) do
-      provider = state[provider]
-
-      if Map.has_key?(provider, function_name) do
-        {:reply, provider[function_name], state}
-      else
-        {:reply, {:error, :function_not_found}, state}
-      end
-    else
-      {:reply, {:error, :provider_not_found}, state}
-    end
+  def expects(module, function_name, response) do
+    GenServer.cast(:mimex_server, {:update, module, function_name, response})
   end
 
-  def handle_cast({:update, provider, function_name, response}, state) do
-    new_state = put_in(state, [provider, function_name], response)
-
-    {:noreply, new_state}
-  end
-
-  defp stub_module_fn(module_name) do
-    functions = module_name.__info__(:functions)
+  defp stub_module_fn(module) do
+    functions = module.__info__(:functions)
 
     Enum.map(functions, fn {name, arity} ->
-      params = for x <- 1..arity, do: Macro.var(:"arg#{x}", module_name)
+      params = for x <- 1..arity, do: Macro.var(:"arg#{x}", module)
+      mimex_module = Module.concat(__MODULE__, module)
 
       quote do
         def unquote(name)(unquote_splicing(params)) do
-          module_name = Module.concat(Mimex, unquote(module_name))
-          apply(unquote(module_name), :get, [Atom.to_string(unquote(name))]).(unquote(params))
+          unquote(__MODULE__).get(unquote(mimex_module), unquote(name)).(unquote_splicing(params))
         end
       end
     end)
-  end
-
-  defp create_mimex_fn(module) do
-    quote do
-      def get(function_name) do
-        GenServer.call(:mimex, {:get, unquote(module), function_name})
-      end
-
-      def expect(function_name, response) do
-        GenServer.cast(:mimex, {:update, unquote(module), function_name, response})
-      end
-    end
   end
 end

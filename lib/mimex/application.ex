@@ -10,6 +10,7 @@ defmodule Mimex.Application do
 
     # Define workers and child supervisors to be supervised
     children = [
+      worker(Mimex.Server, [])
       # Starts a worker by calling: Tester.Worker.start_link(arg1, arg2, arg3)
       # worker(Tester.Worker, [arg1, arg2, arg3]),
     ]
