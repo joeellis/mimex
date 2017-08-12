@@ -86,7 +86,7 @@ defmodule UserControllerTest do
 
     {:error, reason} = UserController.create(params)
 
-    assert returned_user.id == user.id
+    assert reason == "oh no it failed"
   end
 end
 ```
