@@ -20,6 +20,7 @@ defmodule MimexTest do
   test "can stub a single module" do
     stub_module = Mimex.stub(TestFoo)
 
+    # change function's behavior
     expects stub_module, :add, fn (this, that) -> this - that end
 
     assert stub_module.add(4, 2) == 2 # stubbed copy shows new value
@@ -39,11 +40,11 @@ defmodule MimexTest do
     assert TestBar.multi(4, 2) == 8 # original module is not modified
   end
 
-  test "can't set a function on a method that doesn't exist" do
+  test "can't set a new function implementation on a function that doesn't exist" do
     stub_module = Mimex.stub(TestFoo)
 
     assert_raise UndefinedFunctionError, fn ->
-      stub_module.other_method(4, 2) == 2
+      stub_module.other_function(4, 2) == 2
     end
   end
 end

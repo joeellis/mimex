@@ -14,16 +14,18 @@ defmodule Mimex.Server do
   end
 
   def handle_call({:get, module, function}, _from, state) do
+    arity = module.__info__(:functions)[function]
+
     if Map.has_key?(state, module) do
       functions = state[module]
 
       if Map.has_key?(functions, function) do
         {:reply, functions[function], state}
       else
-        {:reply, {:error, :function_not_found}, state}
+        {:reply, {:error, :not_implemented, module, "#{function}/#{arity}"}, state}
       end
     else
-      {:reply, {:error, :module_not_found}, state}
+      {:reply, {:error, :not_implemented, module, "#{function}/#{arity}"}, state}
     end
   end
 
